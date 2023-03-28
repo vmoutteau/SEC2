@@ -1,0 +1,1 @@
+find . -name core -print -exec rm {} \ -size +0;

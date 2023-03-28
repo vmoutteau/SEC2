@@ -1,0 +1,12 @@
+#!/bin/bash
+#$1 : fichier donné
+
+voyelles = [<a,e,i,o,u,y,A,E,I,O,U,Y>];
+compteur=0;
+
+for ligne in $1
+do 
+        
+done
+
+echo $compteur
