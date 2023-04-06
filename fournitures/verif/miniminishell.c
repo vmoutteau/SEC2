@@ -42,5 +42,5 @@ int main(int argc, char* argv[]) {
             }
         }
     } while (ret != EOF && strcmp(buf, chaineExit));
-    printf("Salut, fin du minishell\n");
+    printf("\nSalut, fin du mininishell\n");
 }
