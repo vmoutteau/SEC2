@@ -38,10 +38,12 @@ char* getTexteCommande(struct cmdline *cmd) {
 }
 
 /**
- * Executer une commande
+ * Executer une commande basique (sans pipeline)
  * cmd (in) : commande
+ * id (in) : id de la commande à effectuer
+ * p (in) : numéro de la commande dans la struture cmd : cmd->seq[p]
 */
-int executer(struct cmdline *cmd, int id) {
+int executer(struct cmdline *cmd, int id, int p) {
     pid_t pidFils = fork();
     char *texteCommande = getTexteCommande(cmd);
     if (pidFils == -1) {
@@ -49,7 +51,7 @@ int executer(struct cmdline *cmd, int id) {
         exit(1);
     }
     if (pidFils == 0) { // fils
-        execvp(cmd->seq[0][0], cmd->seq[0]);
+        execvp(cmd->seq[p][0], cmd->seq[p]);
         perror("execvp");
         exit(1);
     }
@@ -66,6 +68,71 @@ int executer(struct cmdline *cmd, int id) {
     }
     return EXIT_SUCCESS;
 }
+
+int executer_pipeline(struct cmdline *cmd, int id) {
+    int nb_commandes = 0; // Compte le nombre de commandes dans le cas d'un tube
+
+    // Compter le nombre de commandes.
+    while(cmd->seq[nb_commandes] != NULL) {
+        nb_commandes++;
+    }
+
+    // Créer nb_commandes - 1 pipes pour relier les commandes entre elles
+    int nb_tubes = nb_commandes - 1;
+    int tubes[nb_tubes][2];
+    for (int i = 0; i < nb_tubes; i++) {
+        if (pipe(tubes[i]) == -1) {
+            perror("pip\n");
+        }
+    }
+
+    for (int i = 0 ; i < nb_commandes ; i++) {
+        // Créer nb_commandes fils, pour l'éxécution de chaque commande.
+        pid_t pid = fork();
+
+        if (pid == 0) { // processus fils
+            // Fermer les descripteurs de fichier inutilisés.
+            for (int j = 0; j < nb_tubes; j++) {
+                if (j != i - 1) {
+                    close(tubes[j][0]);
+                }
+                if (j != i) {
+                    close(tubes[j][1]);
+                }
+            }
+
+
+            // Redirection des descripteurs
+            if (i != 0) {
+                dup2(tubes[i - 1][0], 0);
+                close(tubes[i - 1][0]);
+            }
+            if (i != nb_tubes) {
+                dup2(tubes[i][1], 1);
+                close(tubes[i][1]);
+            }
+
+            // Exécution de la commande
+            if (execvp(cmd->seq[i][0], cmd->seq[i]) == -1) {
+                perror("Erreur lors de l'exécution de la commande");
+                exit(EXIT_FAILURE);
+            }
+        }
+    }
+
+    // Fermer les descripteurs de fichier inutilisés dans le processus père
+    for (int i = 0; i < nb_tubes; i++) {
+        close(tubes[i][0]);
+        close(tubes[i][1]);
+    }
+
+    // Attendre la fin des processus enfants
+    for (int i = 0; i < nb_commandes; i++) {
+        wait(NULL);
+    }
+    return EXIT_SUCCESS;
+}
+
 
 void handler() {
     int etat_fils;
@@ -90,7 +157,7 @@ void handler_SIGINT(int sgn) {
     printf("okay");
     if (pid) {
         printf("pid3 : %d\n", pid);
-        kill(pid, sgn);
+        kill(pid, SIGKILL);
     }
 }
 
@@ -99,6 +166,7 @@ void handler_SIGSTOP(int sgn) {
     int pid = 0;
     printf("pid1 : %d\n", pid);
     getAvantPlan(liste_job, &pid);
+    printf("okay\n");
     if (pid) {
         printf("pid3 : %d\n", pid);
         kill(pid, SIGSTOP);
@@ -140,13 +208,12 @@ int main() {
         // Lire la commande.
         do { 
             cmd = readcmd();
-        } while (cmd == NULL); 
+        } while (cmd == NULL || cmd->seq == NULL); 
 
     
         verifier_executer_cmd_internes(cmd, liste_job, &sortir, &passer, &avant_plan);
 
         if (avant_plan == 1) {
-            printf("avantplan");
             // attendre un sigal SIGCHLD avant de reprendre
             pause();
             pause();
@@ -167,8 +234,9 @@ int main() {
                 close(fd_entree);
             }
 
-            executer(cmd, id);
-
+            //executer(cmd, id, 0);
+            executer_pipeline(cmd, id);
+            id++;
             if (cmd->out != NULL) { // Remettre en place la sortie standard.
                 int nouvelleSortieStandard = open("/dev/tty", O_WRONLY);
                 dup2(nouvelleSortieStandard, 1);
@@ -176,11 +244,13 @@ int main() {
                 printf("nouvelle sortie standard");
             }
             if (cmd->in != NULL) { // Remettre en place l'entrée stardard.
-                freopen("dec/tty", "r", stdin);
+                int nouvelleEntreeStandard = open("/dev/tty", O_RDONLY);
+                dup2(nouvelleEntreeStandard, 1);
+                close(nouvelleEntreeStandard);
                 printf("entrée standard");
             }
 
-            id++;
+            
         } else if (cmd->err != NULL) {
             printf("%s", cmd->err);
         }
