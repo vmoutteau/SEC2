@@ -31,8 +31,11 @@ int verifier_executer_cd(struct cmdline *cmd, int *passer) {
     strcpy(chaineCD, "cd");
     if (!strcmp(cmd->seq[0][0], chaineCD)) {
         *passer = 1;
-        if (chdir(cmd->seq[0][1]) != 0) {
-            printf("cd : usage : cd <path>");
+        if (cmd->seq[0][1]) {
+            chdir(cmd->seq[0][1]);
+        }
+        else {
+            chdir(getenv("HOME"));
         }
     }
     return EXIT_SUCCESS;

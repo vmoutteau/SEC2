@@ -7,5 +7,5 @@ int main(int argc, char *argv[]) {
         printf("usage : ./sleep <temps d'attente>");
     }
     sleep(atoi(argv[1]));
-    printf("fin de l'attente\n");
+    printf("fin de l'attente de %d secondes.\n", atoi(argv[1]));
 }

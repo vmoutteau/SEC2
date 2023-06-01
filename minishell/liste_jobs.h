@@ -10,6 +10,7 @@ struct job {
     pid_t pid;
     char *commande;
     enum Etat statut;
+    int avantPlan; // Vaut 1 si le processus est en avant plan.
 };
 
 struct cellule {
@@ -26,7 +27,7 @@ typedef struct cellule cellule;
 /**
  * Ajouter un job à la liste de jobs.
 */
-void ajouter_job(cellule **liste, int nID, int npid, char *ncommande, int nstatut);
+void ajouter_job(cellule **liste, int nID, int npid, char *ncommande, int nstatut, int avantPlan);
 
 /**
  * Mettre à jour le statut d'un processus fils du shell,
@@ -49,4 +50,12 @@ void afficher_job(cellule *liste);
  * j (out): job récupéré
 */
 void getJob(cellule *liste, int id, job *j);
+
+/**
+ * Obtenir le pid du processus (éventuel) en avant plan et actif
+ * liste (in) : liste des jobs
+ * pid (out) : pid récupéré
+*/
+void getAvantPlan(cellule *liste, int *pid);
+
 #endif

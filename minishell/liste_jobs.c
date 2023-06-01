@@ -2,13 +2,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-void ajouter_job(cellule **liste, int nID, int npid, char *ncommande, int nstatut) {
+void ajouter_job(cellule **liste, int nID, int npid, char *ncommande, int nstatut, int avantPlan) {
     // Allouer une nouvelle cellule pour le nouveau job
     struct cellule *nouvelle_cellule = (struct cellule*) malloc(sizeof(struct cellule));
     nouvelle_cellule->courante.id = nID;
     nouvelle_cellule->courante.pid = npid;
     nouvelle_cellule->courante.commande = ncommande;
     nouvelle_cellule->courante.statut = nstatut;
+    nouvelle_cellule->courante.avantPlan = avantPlan;
     nouvelle_cellule->suivante = NULL;
 
     // Ajouter le nouveau job à la fin de la liste
@@ -55,4 +56,14 @@ void getJob(cellule *liste, int id, job *j) {
     }
 
     *j = curseur->courante;
+}
+
+void getAvantPlan(cellule *liste, int *pid) {
+    while(liste) {
+        if (liste->courante.avantPlan == 1 && liste->courante.statut == ACTIF) {
+            *pid = liste->courante.pid;
+            printf("pid2 : %d\n", liste->courante.pid);
+        }
+        liste = liste->suivante;
+    }
 }

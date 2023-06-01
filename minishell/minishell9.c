@@ -44,7 +44,6 @@ char* getTexteCommande(struct cmdline *cmd) {
 int executer(struct cmdline *cmd, int id) {
     pid_t pidFils = fork();
     char *texteCommande = getTexteCommande(cmd);
-    ajouter_job(&liste_job, id, pidFils, texteCommande, ACTIF);
     if (pidFils == -1) {
         printf("Erreur fork\n");
         exit(1);
@@ -57,9 +56,11 @@ int executer(struct cmdline *cmd, int id) {
     else {  // père
         if (cmd->backgrounded) {
             // Dans le cas d'une tache de fond, on passe à la suite
+            ajouter_job(&liste_job, id, pidFils, texteCommande, ACTIF, 0);
         }
         else {
             // Dans l'autre cas, on attend le signal SIGCHLD avant de continuer.
+            ajouter_job(&liste_job, id, pidFils, texteCommande, ACTIF, 1);
             pause();
         }
     }
@@ -82,8 +83,29 @@ void handler() {
 }
 
 void handler_SIGINT(int sgn) {
-    printf("SIGNAL RECU : SIGINT");
+    printf("SIGNAL RECU : %d \n", sgn);
+    int pid = 0;
+    printf("pid1 : %d\n", pid);
+    getAvantPlan(liste_job, &pid);
+    printf("okay");
+    if (pid) {
+        printf("pid3 : %d\n", pid);
+        kill(pid, sgn);
+    }
 }
+
+void handler_SIGSTOP(int sgn) {
+    printf("SIGNAL RECU : %d \n", sgn);
+    int pid = 0;
+    printf("pid1 : %d\n", pid);
+    getAvantPlan(liste_job, &pid);
+    if (pid) {
+        printf("pid3 : %d\n", pid);
+        kill(pid, SIGSTOP);
+    }
+}
+
+void handler_vide() {};
 
 int main() {
     int sortir = 0; // Variable à 1 si on sort de la boucle.
@@ -98,10 +120,16 @@ int main() {
     action.sa_flags = 0;
     sigaction(SIGCHLD, &action, NULL);
 
-    // Abonner le signal SIGCHLD à un traitant.
-    action.sa_handler = handler_SIGINT;
-    sigaddset(&action.sa_mask, SIGINT);
-    sigaction(SIGCHLD, &action, NULL);
+    // Abonner le signal SIGINT à un traitant.
+    struct sigaction action_SIGINT;
+    action_SIGINT.sa_handler = handler_vide;
+    action_SIGINT.sa_flags = SIG_IGN;
+    sigaction(SIGINT, &action_SIGINT, NULL);
+
+    // Abonner le signal SIGSTOP à un traitant.
+    struct sigaction action_SIGSTOP;
+    action_SIGSTOP.sa_flags = SIG_IGN;
+    sigaction(SIGTSTP, &action_SIGSTOP, NULL);
 
     do {
         int passer = 0; // Variable à 1 si on ne lance pas de fils.
@@ -118,7 +146,9 @@ int main() {
         verifier_executer_cmd_internes(cmd, liste_job, &sortir, &passer, &avant_plan);
 
         if (avant_plan == 1) {
+            printf("avantplan");
             // attendre un sigal SIGCHLD avant de reprendre
+            pause();
             pause();
         }      
 
