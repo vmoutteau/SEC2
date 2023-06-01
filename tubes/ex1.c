@@ -13,5 +13,7 @@ int main(int argc, char *argv[]) {
     }
     dup2(fd, 1); // Rediriger la sortie standart vers le fichier
     close(fd);
+    execlp("ls", "ls", "-u", "-lt", NULL); // Ecrire la commande dans le fichier
+    // Executer la même commande dans la sortie standart
     execlp("ls", "ls", "-u", "-lt", NULL);
 }

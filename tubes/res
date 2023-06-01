@@ -1,4 +1,14 @@
-total 24
--rw-r--r-- 1 vmouttea vmouttea     0 avril 18  2023 res
--rwxrwxr-x 1 vmouttea vmouttea 16912 avril 18  2023 ex1
--rw-rw-r-- 1 vmouttea vmouttea   441 avril 18 10:37 ex1.c
+total 136
+-rwxrwxr-x 1 valentin valentin 16168 mai    7 15:56 ex1
+-rwxrwxr-x 1 valentin valentin 16168 mai    7 15:56 ex11
+-rw-rw-r-- 1 valentin valentin   581 mai    7 15:56 ex1.c
+drwxrwxr-x 4 valentin valentin  4096 mai    7 15:33 verif_tubes
+-rwxrwxr-x 1 valentin valentin 17032 avril 21 10:34 a.out
+-rw-rw-r-- 1 valentin valentin   646 avril 21 10:34 ex2.c
+-rwxrwxr-x 1 valentin valentin 16960 avril 21 10:34 ex31
+-rw-rw-r-- 1 valentin valentin   485 avril 21 10:34 ex31.c
+-rwxrwxr-x 1 valentin valentin 16960 avril 21 10:34 ex32
+-rw-rw-r-- 1 valentin valentin   437 avril 21 10:34 ex32.c
+-rwxrwxr-x 1 valentin valentin 16992 avril 21 10:34 ex33
+-rw-rw-r-- 1 valentin valentin   574 avril 21 10:34 ex33.c
+-rw-rw-r-- 1 valentin valentin     0 avril 21 10:34 res

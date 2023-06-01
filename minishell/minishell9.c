@@ -7,6 +7,8 @@
 #include <sys/wait.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include "readcmd.h"
 #include "liste_jobs.h"
 #include "cmd_internes.h"
@@ -77,7 +79,10 @@ void handler() {
             setStatut(&liste_job, pid_fils, TERMINE);
         } 
     }
-    
+}
+
+void handler_SIGINT(int sgn) {
+    printf("SIGNAL RECU : SIGINT");
 }
 
 int main() {
@@ -91,6 +96,11 @@ int main() {
     action.sa_handler = handler;
     sigemptyset(&action.sa_mask);
     action.sa_flags = 0;
+    sigaction(SIGCHLD, &action, NULL);
+
+    // Abonner le signal SIGCHLD à un traitant.
+    action.sa_handler = handler_SIGINT;
+    sigaddset(&action.sa_mask, SIGINT);
     sigaction(SIGCHLD, &action, NULL);
 
     do {
@@ -116,7 +126,30 @@ int main() {
             break;
         }
         if (cmd->err == NULL && passer != 1 && avant_plan != 1) {
+            if (cmd->out != NULL) { // Rediriger la sortie standard vers le fichier.
+                int fd_sortie = open(cmd->out, O_WRONLY | O_TRUNC | O_CREAT, 0644);
+                dup2(fd_sortie, 1);
+                close(fd_sortie);
+            }
+            if (cmd->in != NULL) { // Rediriger l'entrée standard vers le fichier.
+                int fd_entree = open(cmd->in, O_RDONLY | O_TRUNC | O_CREAT, 0644);
+                dup2(fd_entree, 0);
+                close(fd_entree);
+            }
+
             executer(cmd, id);
+
+            if (cmd->out != NULL) { // Remettre en place la sortie standard.
+                int nouvelleSortieStandard = open("/dev/tty", O_WRONLY);
+                dup2(nouvelleSortieStandard, 1);
+                close(nouvelleSortieStandard);
+                printf("nouvelle sortie standard");
+            }
+            if (cmd->in != NULL) { // Remettre en place l'entrée stardard.
+                freopen("dec/tty", "r", stdin);
+                printf("entrée standard");
+            }
+
             id++;
         } else if (cmd->err != NULL) {
             printf("%s", cmd->err);

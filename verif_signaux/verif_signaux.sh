@@ -42,9 +42,9 @@ gcc -Wall etu/etu.c -o sgnetu
 gcc -Wall a/kro.c -o a/bar
 
 a/bar > hurz
-aleph=`cat hurz | head -1`
-o6=`cat hurz | tail -1`
-jack=`cat a/b/core`
+aleph=`cat hurz | head -1` # = 10
+o6=`cat hurz | tail -1`	   # = 12
+jack=`cat a/b/core`		   # = reception
 
 echo "10 secondes..."
 
@@ -70,6 +70,7 @@ echo "encore 10 secondes..."
 sleep 12
 
 r5=`cat foo | grep Salut | wc -l`
+
 
 if [ \( $r5 -eq 1 \) -a \( $((r4/r3)) -eq $(cat a/pfurz) \) ] ; then 
 	res=OK
