@@ -39,10 +39,11 @@ void setStatut(cellule **liste, int pid, int statut) {
 
 
 void afficher_job(cellule *liste) {
-    printf("id | pid | etat | ligne de commande \n");
+    printf("id | pid | etat | ligne de commande | avantplan?\n");
     while (liste) {
         if (liste->courante.statut != TERMINE) {
-            printf("%d | %d | %d | %s\n", liste->courante.id, liste->courante.pid, liste->courante.statut, liste->courante.commande);
+            printf("%d | %d | %d | %s | %d\n", liste->courante.id, liste->courante.pid,
+                liste->courante.statut, liste->courante.commande, liste->courante.avantPlan);
         }
         liste = liste->suivante;
     }

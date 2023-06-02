@@ -1,15 +1,24 @@
-NB TUBES : 0 
-1
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-
-int main(int argc, char *argv[]) {
-    if (argc != 2) {
-        printf("usage : ./sleep <temps d'attente>");
-    }
-    sleep(atoi(argv[1]));
-    printf("fin de l'attente de %d secondes.\n", atoi(argv[1]));
-}fils 0 fini 
-2
-STP
+b
+cmd_internes.c
+cmd_internes.h
+cmd_internes.o
+liste_jobs.c
+liste_jobs.h
+liste_jobs.o
+Makefile
+minishell9
+minishell9.c
+minishell9.o
+minishell.c
+minishell.o
+note.md
+note.pdf
+readcmd.c
+readcmd.h
+readcmd.o
+SEC_Moutteau_Valentin.tar
+sleep
+sleep.c
+test_liste_jobs.c
+test_readcmd.c
+tests

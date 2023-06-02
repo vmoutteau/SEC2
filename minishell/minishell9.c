@@ -9,6 +9,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <string.h>
 #include "readcmd.h"
 #include "liste_jobs.h"
 #include "cmd_internes.h"
@@ -19,6 +20,13 @@
 // initialiser une liste de jobs.
 cellule *liste_job = NULL;
 
+int ok(int retour_commande, char *message) {
+    if (retour_commande == -1) {
+        perror(message);
+        exit(1);
+    }
+    return retour_commande;
+}
 
 
 /** Récupère la chaîne de carectère d'une commande simple*/
@@ -29,10 +37,22 @@ char* getTexteCommande(struct cmdline *cmd) {
     if (cmd == NULL) {
         cmd = readcmd();
     }
-    while (cmd->seq[0][i] != NULL) {
-        strcat(Texte, cmd->seq[0][i]);
-        strcat(Texte, " ");  // Ajouter un espace entre chaque argument
-        i++;
+    
+    int nb_commandes = 0; // Compte le nombre de commandes dans le cas d'un tube
+
+    // Compter le nombre de commandes.
+    while(cmd->seq[nb_commandes] != NULL) {
+        nb_commandes++;
+    }
+    for (int p = 0 ; p < nb_commandes ; p++) {
+        while (cmd->seq[p][i] != NULL) {
+            strcat(Texte, cmd->seq[p][i]);
+            strcat(Texte, " ");  // Ajouter un espace entre chaque argument
+            i++;
+        }
+        if (p != nb_commandes - 1 && nb_commandes != 1) {
+            strcat(Texte, "| ");
+        }
     }
     return Texte;
 }
@@ -86,11 +106,12 @@ int executer_pipeline(struct cmdline *cmd, int id) {
         }
     }
 
+    pid_t pidFils;
     for (int i = 0 ; i < nb_commandes ; i++) {
         // Créer nb_commandes fils, pour l'éxécution de chaque commande.
-        pid_t pid = fork();
+        pidFils = fork();
 
-        if (pid == 0) { // processus fils
+        if (pidFils == 0) { // processus fils
             // Fermer les descripteurs de fichier inutilisés.
             for (int j = 0; j < nb_tubes; j++) {
                 if (j != i - 1) {
@@ -112,11 +133,23 @@ int executer_pipeline(struct cmdline *cmd, int id) {
                 close(tubes[i][1]);
             }
 
-            // Exécution de la commande
-            if (execvp(cmd->seq[i][0], cmd->seq[i]) == -1) {
-                perror("Erreur lors de l'exécution de la commande");
-                exit(EXIT_FAILURE);
+            // Vérification des redirections de fichiers
+            if (cmd->in != NULL) {
+                int fd_entree;
+                ok(fd_entree = open(cmd->in, O_RDONLY), "erreur ouverture du fichier de redirection en entrée");
+                dup2(fd_entree, 0);
+                close(fd_entree);
             }
+
+            if (cmd->out != NULL) {
+                int fd_sortie;
+                ok(fd_sortie = open(cmd->out, O_WRONLY | O_CREAT | O_TRUNC, 0666), "erreur ouverture du ficher de redirection en sortie");
+                dup2(fd_sortie, STDOUT_FILENO);
+                close(fd_sortie);
+            }
+
+            // Exécution de la commande
+            ok(execvp(cmd->seq[i][0], cmd->seq[i]), "Erreur lors de l'exécution de la commande"); 
         }
     }
 
@@ -126,9 +159,10 @@ int executer_pipeline(struct cmdline *cmd, int id) {
         close(tubes[i][1]);
     }
 
-    // Attendre la fin des processus enfants
+
+    // Attendre la fin des processus enfants sauf le dernier.
     for (int i = 0; i < nb_commandes; i++) {
-        wait(NULL);
+        pause();
     }
     return EXIT_SUCCESS;
 }
@@ -137,7 +171,7 @@ int executer_pipeline(struct cmdline *cmd, int id) {
 void handler() {
     int etat_fils;
     pid_t pid_fils;
-
+    printf("passe par la\n");
     while ((pid_fils = waitpid(-1, &etat_fils, WNOHANG | WUNTRACED | WCONTINUED)) > 0) {
         if (WIFSTOPPED(etat_fils)) {
             setStatut(&liste_job, pid_fils, SUSPENDU);
@@ -145,16 +179,15 @@ void handler() {
             setStatut(&liste_job, pid_fils, ACTIF);
         } else {
             setStatut(&liste_job, pid_fils, TERMINE);
-        } 
+        }
     }
 }
 
 void handler_SIGINT(int sgn) {
     printf("SIGNAL RECU : %d \n", sgn);
     int pid = 0;
-    printf("pid1 : %d\n", pid);
     getAvantPlan(liste_job, &pid);
-    printf("okay");
+    printf("pid1 : %d\n", pid);
     if (pid) {
         printf("pid3 : %d\n", pid);
         kill(pid, SIGKILL);
@@ -164,10 +197,11 @@ void handler_SIGINT(int sgn) {
 void handler_SIGSTOP(int sgn) {
     printf("SIGNAL RECU : %d \n", sgn);
     int pid = 0;
-    printf("pid1 : %d\n", pid);
     getAvantPlan(liste_job, &pid);
-    printf("okay\n");
+    printf("pid1 : %d\n", pid);
     if (pid) {
+        printf("je dois passer par ici\n");
+        setStatut(&liste_job, pid, SUSPENDU);
         printf("pid3 : %d\n", pid);
         kill(pid, SIGSTOP);
     }
@@ -190,13 +224,19 @@ int main() {
 
     // Abonner le signal SIGINT à un traitant.
     struct sigaction action_SIGINT;
-    action_SIGINT.sa_handler = handler_vide;
-    action_SIGINT.sa_flags = SIG_IGN;
+    action_SIGINT.sa_handler = handler_SIGINT;
+    sigemptyset(&action_SIGINT.sa_mask);
+    sigaddset(&action_SIGINT.sa_mask, SIGINT);
+    action_SIGINT.sa_flags = 0;
     sigaction(SIGINT, &action_SIGINT, NULL);
+
 
     // Abonner le signal SIGSTOP à un traitant.
     struct sigaction action_SIGSTOP;
-    action_SIGSTOP.sa_flags = SIG_IGN;
+    action_SIGSTOP.sa_handler = handler_SIGSTOP;
+    sigemptyset(&action_SIGSTOP.sa_mask);
+    sigaddset(&action_SIGSTOP.sa_mask, SIGTSTP);
+    action_SIGSTOP.sa_flags = 0;
     sigaction(SIGTSTP, &action_SIGSTOP, NULL);
 
     do {
@@ -217,38 +257,17 @@ int main() {
             // attendre un sigal SIGCHLD avant de reprendre
             pause();
             pause();
-        }      
+        }
 
         if (sortir == 1) {
             break;
         }
         if (cmd->err == NULL && passer != 1 && avant_plan != 1) {
-            if (cmd->out != NULL) { // Rediriger la sortie standard vers le fichier.
-                int fd_sortie = open(cmd->out, O_WRONLY | O_TRUNC | O_CREAT, 0644);
-                dup2(fd_sortie, 1);
-                close(fd_sortie);
-            }
-            if (cmd->in != NULL) { // Rediriger l'entrée standard vers le fichier.
-                int fd_entree = open(cmd->in, O_RDONLY | O_TRUNC | O_CREAT, 0644);
-                dup2(fd_entree, 0);
-                close(fd_entree);
-            }
+            
 
             //executer(cmd, id, 0);
             executer_pipeline(cmd, id);
             id++;
-            if (cmd->out != NULL) { // Remettre en place la sortie standard.
-                int nouvelleSortieStandard = open("/dev/tty", O_WRONLY);
-                dup2(nouvelleSortieStandard, 1);
-                close(nouvelleSortieStandard);
-                printf("nouvelle sortie standard");
-            }
-            if (cmd->in != NULL) { // Remettre en place l'entrée stardard.
-                int nouvelleEntreeStandard = open("/dev/tty", O_RDONLY);
-                dup2(nouvelleEntreeStandard, 1);
-                close(nouvelleEntreeStandard);
-                printf("entrée standard");
-            }
 
             
         } else if (cmd->err != NULL) {
