@@ -57,38 +57,12 @@ char* getTexteCommande(struct cmdline *cmd) {
     return Texte;
 }
 
+
 /**
  * Executer une commande basique (sans pipeline)
  * cmd (in) : commande
  * id (in) : id de la commande à effectuer
- * p (in) : numéro de la commande dans la struture cmd : cmd->seq[p]
 */
-int executer(struct cmdline *cmd, int id, int p) {
-    pid_t pidFils = fork();
-    char *texteCommande = getTexteCommande(cmd);
-    if (pidFils == -1) {
-        printf("Erreur fork\n");
-        exit(1);
-    }
-    if (pidFils == 0) { // fils
-        execvp(cmd->seq[p][0], cmd->seq[p]);
-        perror("execvp");
-        exit(1);
-    }
-    else {  // père
-        if (cmd->backgrounded) {
-            // Dans le cas d'une tache de fond, on passe à la suite
-            ajouter_job(&liste_job, id, pidFils, texteCommande, ACTIF, 0);
-        }
-        else {
-            // Dans l'autre cas, on attend le signal SIGCHLD avant de continuer.
-            ajouter_job(&liste_job, id, pidFils, texteCommande, ACTIF, 1);
-            pause();
-        }
-    }
-    return EXIT_SUCCESS;
-}
-
 int executer_pipeline(struct cmdline *cmd, int id) {
     int nb_commandes = 0; // Compte le nombre de commandes dans le cas d'un tube
 
@@ -159,10 +133,20 @@ int executer_pipeline(struct cmdline *cmd, int id) {
         close(tubes[i][1]);
     }
 
+    if (cmd->backgrounded) {
+        // Dans le cas d'une tache de fond, on passe à la suite
+        ajouter_job(&liste_job, id, pidFils, getTexteCommande(cmd), ACTIF, 0);
+    }
+    else {
+        // Dans l'autre cas, on attend le signal SIGCHLD avant de continuer.
+        ajouter_job(&liste_job, id, pidFils, getTexteCommande(cmd), ACTIF, 1);
+    }
 
     // Attendre la fin des processus enfants sauf le dernier.
     for (int i = 0; i < nb_commandes; i++) {
-        pause();
+        if (!cmd->backgrounded) {
+            pause();
+        }
     }
     return EXIT_SUCCESS;
 }
@@ -171,7 +155,6 @@ int executer_pipeline(struct cmdline *cmd, int id) {
 void handler() {
     int etat_fils;
     pid_t pid_fils;
-    printf("passe par la\n");
     while ((pid_fils = waitpid(-1, &etat_fils, WNOHANG | WUNTRACED | WCONTINUED)) > 0) {
         if (WIFSTOPPED(etat_fils)) {
             setStatut(&liste_job, pid_fils, SUSPENDU);
